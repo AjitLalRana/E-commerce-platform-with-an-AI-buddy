@@ -1,37 +1,62 @@
 const request = require('supertest');
 const app = require('../src/app');
+const connectDB = require('../src/db/db');
+const userModel = require('../src/models/user.model');
+const bcrypt = require('bcryptjs');
 
 describe('POST /api/auth/login', () => {
-  it('should return 200 and a token for valid credentials', async () => {
-    const response = await request(app)
-      .post('/api/auth/login')
-      .send({
-        email: 'test@example.com',
-        password: 'password123',
-      });
+    beforeAll(async () => {
+        await connectDB();
+    });
 
-    expect(response.statusCode).toBe(200);
-    expect(response.body).toHaveProperty('token');
-  });
+    it('logs in with correct credentials and returns 200 with user and sets cookie', async () => {
+        // Seed a user
+        const password = 'Secret123!';
+        const hash = await bcrypt.hash(password, 10);
+        await userModel.create({
+            username: 'jane_doe',
+            email: 'jane@example.com',
+            password: hash,
+            fullName: { firstName: 'Jane', lastName: 'Doe' },
+        });
 
-  it('should return 401 for invalid credentials', async () => {
-    const response = await request(app)
-      .post('/api/auth/login')
-      .send({
-        email: 'wrong@example.com',
-        password: 'wrongpassword',
-      });
+        const res = await request(app)
+            .post('/api/auth/login')
+            .send({ email: 'jane@example.com', password });
 
-    expect(response.statusCode).toBe(401);
-    expect(response.body).toHaveProperty('error', 'Invalid credentials');
-  });
+        expect(res.status).toBe(200);
+        expect(res.body.user).toBeDefined();
+        expect(res.body.user.email).toBe('jane@example.com');
+        // cookie should be set
+        const setCookie = res.headers[ 'set-cookie' ];
+        expect(setCookie).toBeDefined();
+        expect(setCookie.join(';')).toMatch(/token=/);
+    });
 
-  it('should return 400 for missing fields', async () => {
-    const response = await request(app)
-      .post('/api/auth/login')
-      .send({});
+    it('rejects wrong password with 401', async () => {
+        const password = 'Secret123!';
+        const hash = await bcrypt.hash(password, 10);
+        await userModel.create({
+            username: 'jack_smith',
+            email: 'jack@example.com',
+            password: hash,
+            fullName: { firstName: 'Jack', lastName: 'Smith' },
+        });
 
-    expect(response.statusCode).toBe(400);
-    expect(response.body).toHaveProperty('error', 'Email and password are required');
-  });
+        const res = await request(app)
+            .post('/api/auth/login')
+            .send({ email: 'jack@example.com', password: 'WrongPass1!' });
+
+        expect(res.status).toBe(401);
+        expect(res.body.message).toBe('Invalid credentials');
+    });
+
+    it('validates missing fields with 400', async () => {
+        const res = await request(app)
+            .post('/api/auth/login')
+            .send({});
+
+        expect(res.status).toBe(400);
+        expect(res.body.errors).toBeDefined();
+    });
 });
