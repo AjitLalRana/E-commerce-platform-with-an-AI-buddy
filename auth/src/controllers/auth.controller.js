@@ -1,7 +1,7 @@
 const userModel = require('../models/user.model');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
+const redis = require('../db/redis')
 
 async function registerUser(req, res) {
     try {
@@ -66,7 +66,7 @@ async function loginUser(req, res) {
         const { username, email, password } = req.body;
 
         // find user with password selected
-        const user = await userModel.findOne({ $or: [ { email }, { username } ] }).select('+password');
+        const user = await userModel.findOne({ $or: [ { email }, { username } ] });
 
         if (!user) {
             return res.status(401).json({ message: 'Invalid credentials' });
@@ -74,7 +74,7 @@ async function loginUser(req, res) {
 
         const isMatch = await bcrypt.compare(password, user.password || '');
         if (!isMatch) {
-            return res.status(401).json({ message: 'Invalid credentials' });
+            return res.status(401).json({ message: 'Wrong password' });
         }
 
         const token = jwt.sign({
@@ -114,10 +114,25 @@ async function getCurrentUser(req, res) {
     });
 }
 
+async function logoutUser(req, res){
+    const token = req.cookies.token;
+
+    if(token){
+        await redis.set(`blacklist:${token}`,'true', 'EX',24*60*60)//expires in a day
+    }
+    res.clearCookie('token',{
+        httpOnly: true,
+        secure: true
+    })
+
+    return res.status(200).json({ message: "Logged out successfully"});
+}
+
 
 
 module.exports = {
     registerUser,
     loginUser,
     getCurrentUser,
+    logoutUser
 }

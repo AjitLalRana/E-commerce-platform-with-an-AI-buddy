@@ -23,8 +23,7 @@ const userSchema = new mongoose.Schema({
         unique: true
     },
     password: {
-        type: String,
-        select: false,
+        type: String
     },
     fullName: {
         firstName: { type: String, required: true },
