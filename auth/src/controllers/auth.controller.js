@@ -74,7 +74,7 @@ async function loginUser(req, res) {
 
         const isMatch = await bcrypt.compare(password, user.password || '');
         if (!isMatch) {
-            return res.status(401).json({ message: 'Wrong password' });
+            return res.status(401).json({ message: 'Invalid credentials' });
         }
 
         const token = jwt.sign({
@@ -116,6 +116,9 @@ async function getCurrentUser(req, res) {
 
 async function logoutUser(req, res){
     const token = req.cookies.token;
+    if(!token){
+        return res.status(200).json({message: "no token available"});
+    }
 
     if(token){
         await redis.set(`blacklist:${token}`,'true', 'EX',24*60*60)//expires in a day
@@ -128,11 +131,85 @@ async function logoutUser(req, res){
     return res.status(200).json({ message: "Logged out successfully"});
 }
 
+async function getUserAddresses(req, res) {
+
+    const id = req.user.id
+
+    const user = await userModel.findById(id).select('addresses');
+
+    if (!user) {
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+        message: "User addresses fetched successfully",
+        addresses: user.addresses
+    });
+}
+
+async function addUserAddress(req, res) {
+
+    const id = req.user.id
+
+    const { street, city, state, pincode, country, isDefault } = req.body;
+
+    const user = await userModel.findOneAndUpdate({ _id: id }, {
+        $push: {
+            addresses: {
+                street,
+                city,
+                state,
+                pincode,
+                country,
+                isDefault
+            }
+        }
+    }, { new: true });
+
+    if (!user) {
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(201).json({
+        message: "Address added successfully",
+        address: user.addresses[ user.addresses.length - 1 ]
+    });
+}
+
+async function deleteUserAddress(req, res) {
+    const { addressId } = req.params;
+    const id = req.user.id;
+
+    const user = await userModel.findById(id);
+
+    if (!user) {
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    const addrIndex = user.addresses.findIndex(a => a._id.toString() === addressId);
+
+    if (addrIndex === -1) {
+        return res.status(404).json({ message: "Address not found" });
+    }
+
+    user.addresses.splice(addrIndex, 1);
+    await user.save();
+
+    return res.status(200).json({
+        message: "Address deleted successfully",
+        addresses: user.addresses
+    });
+}
+
+
 
 
 module.exports = {
     registerUser,
     loginUser,
     getCurrentUser,
-    logoutUser
+    logoutUser,
+    getUserAddresses,
+    addUserAddress,
+    deleteUserAddress
 }

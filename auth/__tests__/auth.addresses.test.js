@@ -60,7 +60,7 @@ describe('User addresses API', () => {
     });
 
     describe('POST /api/auth/users/me/addresses', () => {
-        it('validates pincode and phone and returns 400 on invalid input', async () => {
+        it('validates pincode and returns 400 on invalid input', async () => {
             const { cookies } = await seedUserAndLogin({ username: 'adder1', email: 'adder1@example.com' });
 
             const res = await request(app)
@@ -93,7 +93,7 @@ describe('User addresses API', () => {
                     isDefault: true,
                 });
 
-            expect([ 200, 201 ]).toContain(res.status);
+            expect(res.status === 200 || res.status === 201).toBe(true);
             expect(res.body.address).toBeDefined();
             const addr = res.body.address;
             expect(addr.street).toBe('1600 Amphitheatre Pkwy');
@@ -107,8 +107,8 @@ describe('User addresses API', () => {
             const { user, cookies } = await seedUserAndLogin({ username: 'deleter', email: 'deleter@example.com' });
 
             user.addresses.push(
-                { street: 'A St', city: 'X', state: 'X', zip: '11111', country: 'US' },
-                { street: 'B St', city: 'Y', state: 'Y', zip: '22222', country: 'US' }
+                { street: 'A St', city: 'X', state: 'X', pincode: '11111', country: 'US' },
+                { street: 'B St', city: 'Y', state: 'Y', pincode: '22222', country: 'US' }
             );
             await user.save();
 
