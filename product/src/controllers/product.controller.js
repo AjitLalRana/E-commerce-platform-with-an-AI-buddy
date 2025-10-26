@@ -23,7 +23,7 @@ async function createProduct(req, res) {
         })
         return res.status(201).json({
             message: "Product created successfully",
-            product
+            data: product
         })
         
     } catch (err) {
@@ -32,4 +32,35 @@ async function createProduct(req, res) {
     }
 }
 
-module.exports = { createProduct };
+async function getProducts(req, res){
+    const {searchQuery, minPrice, maxPrice, limit, skip = 0} = req.query;
+
+    const filter = {};
+
+    try {
+        if(searchQuery){
+        filter.$text = {$search : searchQuery};
+    }
+   if (minPrice) {
+        filter[ 'price.amount' ] = { ...filter[ 'price.amount' ], $gte: Number(minPrice) }
+    }
+
+    if (maxPrice) {
+        filter[ 'price.amount' ] = { ...filter[ 'price.amount' ], $lte: Number(maxPrice) }
+    }
+
+    const products = await productModel.find(filter).skip(Number(skip)).limit(Math.min(Number(limit), 20));
+
+    return res.status(200).json({ data: products });
+
+    } catch (error) {
+        console.log('Get products error', error);
+        return res.status(500).json({message : "Internal server error" });
+    }
+}
+
+module.exports = {
+    createProduct,
+    getProducts
+
+};
