@@ -1,0 +1,23 @@
+const express = require('express');
+const multer = require('multer');
+const productController = require('../controllers/product.controller');
+const {createAuthMiddleware,verifyToken} = require('../middlewares/auth.middleware');
+const { createProductValidators } = require('../validators/product.validators');
+
+const router = express.Router();
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+// POST /api/products
+router.post(
+    '/',
+    createAuthMiddleware([ 'admin', 'seller' ]),
+    upload.array('images', 5),
+    createProductValidators,
+    productController.createProduct
+);
+
+
+router.get('/',productController.getProducts);
+
+module.exports = router;
