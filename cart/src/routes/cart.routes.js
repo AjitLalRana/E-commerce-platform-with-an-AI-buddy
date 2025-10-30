@@ -16,6 +16,8 @@ router.patch('/items/:productId', createAuthMiddleware(['user']), cartValidation
 // POST /api/cart/items - Add item to cart
 router.post('/items', createAuthMiddleware(['user']),cartValidation.addItemValidator, cartController.addItemToCart);
 
+router.delete('/items/:productId', createAuthMiddleware(['user']),cartValidation.deleteItemValidator, cartController.deleteItemFromCart);
+
 
 
 

@@ -40,7 +40,17 @@ const patchItemValidator = [
   handleValidationErrors
 ];
 
+const deleteItemValidator = [
+  param('productId')
+    .isString()
+    .withMessage("ProductId must be string")
+    .custom(value => mongoose.Types.ObjectId.isValid(value))
+    .withMessage('Invalid Product ID format'),
+  handleValidationErrors
+]
+
 module.exports = { 
   addItemValidator,
-  patchItemValidator
+  patchItemValidator,
+  deleteItemValidator
  };
