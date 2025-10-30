@@ -1,4 +1,4 @@
-const { body, validationResult } = require('express-validator');
+const { body,param, validationResult } = require('express-validator');
 const mongoose = require('mongoose');
 
 function handleValidationErrors(req, res, next) {
@@ -28,4 +28,19 @@ const addItemValidator = [
   handleValidationErrors
 ];
 
-module.exports = { addItemValidator };
+const patchItemValidator = [
+   param('productId')
+        .isString()
+        .withMessage('Product ID must be a string')
+        .custom(value => mongoose.Types.ObjectId.isValid(value))
+        .withMessage('Invalid Product ID format'),
+  body('quantity')
+    .isInt({ min: 1 })
+    .withMessage('Quantity must be a positive integer'),  
+  handleValidationErrors
+];
+
+module.exports = { 
+  addItemValidator,
+  patchItemValidator
+ };

@@ -1,3 +1,4 @@
+const { default: mongoose } = require('mongoose');
 const cartModel = require('../models/cart.model');
 
 
@@ -78,7 +79,53 @@ async function getCart(req, res){
 }
 
 
+async function updateItemQuantity(req, res) {
+    const { productId } = req.params;
+    const { quantity } = req.body;
+   
+    const user = req.user;
+    const cart = await cartModel.findOne({ user: user.id });
+    if (!cart) {
+        return res.status(404).json({ message: 'Cart not found' });
+    }
+    const existingItemIndex = cart.items.findIndex(item => item.productId.toString() === productId);
+    if (existingItemIndex < 0) {
+        return res.status(404).json({ message: 'Item not found' });
+    }
+    cart.items[ existingItemIndex ].quantity = Number(quantity);
+    await cart.save();
+    res.status(200).json({ message: 'Item updated', cart });
+}
+
+
+async function deleteItemFromCart(req, res){
+    const {productId} = req.params;
+    const userId = req.user.id;
+    try {
+        const cart = await cartModel.findOne({user : userId});
+        if(!cart){
+            return res.status(404).json({message: "cart not found"});
+        } 
+        const productIndex = cart.items.findIndex(item => item.productId.toString() === productId);
+        if(productIndex < 0){
+            return res.status(404).json({message: "Item not found"});
+        }
+        cart.items.splice(productIndex, 1);
+        await cart.save();
+        return res.status(200).json({message: "Item deleted from cart", cart});
+    } catch (error) {
+        return res.status(500).json({message: "Internal server error", error});
+    }
+}
+
+
+
+
+
+
 module.exports = {
     addItemToCart,
-    getCart
+    getCart,
+    updateItemQuantity,
+    deleteItemFromCart
 }

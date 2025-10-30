@@ -102,5 +102,5 @@ describe('GET /api/cart', () => {
             .get(getEndpoint)
             .set('Authorization', 'Bearer invalid.token.here');
         expect(res.status).toBe(401);
-    });
+    });  
 });
