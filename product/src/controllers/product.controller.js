@@ -6,7 +6,7 @@ const { uploadImage } = require('../services/imagekit.service');
 // Accepts multipart/form-data with fields: title, description, priceAmount, priceCurrency, images[] (files)
 async function createProduct(req, res) {
     try {
-        const { title, description, priceAmount, priceCurrency = 'INR' } = req.body;
+        const { title, description, priceAmount, priceCurrency = 'INR',stock } = req.body;
         const seller = req.user.id;
         const images = await Promise.all((req.files || []).map((file) => {
             return uploadImage({ buffer: file.buffer });
@@ -20,6 +20,7 @@ async function createProduct(req, res) {
                 currency: priceCurrency
             },
             seller,
+            stock : Number(stock) || 0,
             images
         })
         return res.status(201).json({
@@ -146,7 +147,7 @@ async function updateProductById(req, res) {
         return res.status(403).json({ message: 'Forbidden: You can only update your own products' });
     }
 
-    const allowedUpdates = ['title', 'description', 'price'];
+    const allowedUpdates = ['title', 'description', 'price','stock'];
     for (const key of Object.keys(req.body)) {
         if (allowedUpdates.includes(key)) {
             if (key === 'price' && typeof req.body.price === 'object') {

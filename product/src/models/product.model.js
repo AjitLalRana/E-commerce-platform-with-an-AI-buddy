@@ -24,6 +24,10 @@ const productSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         required: true,
     },
+    stock :{
+        type: Number,   
+        default : 0
+    },
     images: [
         {
             url: String,
@@ -31,7 +35,7 @@ const productSchema = new mongoose.Schema({
             id: String
         }
     ]
-})
+},{timestamps : true});
 
 productSchema.index({ title: 'text', description: 'text'});
 
