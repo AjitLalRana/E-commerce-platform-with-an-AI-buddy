@@ -18,6 +18,13 @@ jest.mock('../src/models/cart.model.js', () => {
         static async findOne(query) {
             return carts.get(query.user) || null;
         }
+        static async findById(id) {
+            for (const v of carts.values()) {
+                if (!v) continue;
+                if (v._id && v._id.toString() === id.toString()) return v;
+            }
+            return null;
+        }
         async save() {
             carts.set(this.user, this);
             return this;

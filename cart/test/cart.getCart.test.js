@@ -2,6 +2,9 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const app = require('../src/app');
 
+const axios = require('axios');
+jest.mock('axios');
+
 jest.mock('../src/models/cart.model.js', () => {
     function mockGenerateObjectId() {
         return Array.from({ length: 24 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
@@ -15,6 +18,13 @@ jest.mock('../src/models/cart.model.js', () => {
         }
         static async findOne(query) {
             return carts.get(query.user) || null;
+        }
+        static async findById(id) {
+            for (const v of carts.values()) {
+                if (!v) continue;
+                if (v._id && v._id.toString() === id.toString()) return v;
+            }
+            return null;
         }
         async save() {
             carts.set(this.user, this);
@@ -47,15 +57,18 @@ describe('GET /api/cart', () => {
 
     beforeEach(() => {
         CartModel.__reset();
+        if (axios.get && axios.get.mockReset) axios.get.mockReset();
     });
 
     test('returns cart with items and basic totals', async () => {
         const token = signToken({ _id: userId, role: 'user' });
         // Seed via existing POST endpoint (ensures consistency with add logic)
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 10 } } });
         await request(app)
             .post(postEndpoint)
             .set('Authorization', `Bearer ${token}`)
             .send({ productId: productIdA, quantity: 2 });
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 10 } } });
         await request(app)
             .post(postEndpoint)
             .set('Authorization', `Bearer ${token}`)

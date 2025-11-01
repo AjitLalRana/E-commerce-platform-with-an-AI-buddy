@@ -1,6 +1,9 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const app = require('../src/app');
+const axios = require('axios');
+
+jest.mock('axios');
 
 // Mock the cart model
 jest.mock('../src/models/cart.model.js', () => {
@@ -17,6 +20,13 @@ jest.mock('../src/models/cart.model.js', () => {
         }
         static async findOne(query) {
             return carts.get(query.user) || null;
+        }
+        static async findById(id) {
+            for (const v of carts.values()) {
+                if (!v) continue;
+                if (v._id && v._id.toString() === id.toString()) return v;
+            }
+            return null;
         }
         async save() {
             carts.set(this.user, this);
@@ -45,10 +55,13 @@ describe('POST /api/cart/items', () => {
 
     beforeEach(() => {
         CartModel.__reset();
+        if (axios.get && axios.get.mockReset) axios.get.mockReset();
     });
 
     test('creates new cart and adds first item', async () => {
         const token = signToken({ _id: userId, role: 'user' });
+        // product service returns sufficient stock
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 10 } } });
         const res = await request(app)
             .post(endpoint)
             .set('Authorization', `Bearer ${token}`)
@@ -65,12 +78,14 @@ describe('POST /api/cart/items', () => {
         const token = signToken({ _id: userId, role: 'user' });
 
         // First add
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 10 } } });
         await request(app)
             .post(endpoint)
             .set('Authorization', `Bearer ${token}`)
             .send({ productId, quantity: 2 });
 
         // Second add
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 10 } } });
         const res = await request(app)
             .post(endpoint)
             .set('Authorization', `Bearer ${token}`)
@@ -113,6 +128,39 @@ describe('POST /api/cart/items', () => {
             .send({ productId, quantity: 1 });
         expect(res.status).toBe(401);
         expect(res.body.message).toMatch(/Unauthorized/);
+    });
+
+    test('returns 400 when requested quantity exceeds product stock', async () => {
+        const token = signToken({ _id: userId, role: 'user' });
+        // product has only 3 in stock
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 3 } } });
+        const res = await request(app)
+            .post(endpoint)
+            .set('Authorization', `Bearer ${token}`)
+            .send({ productId, quantity: 5 });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe('Requested quantity exceeds available stock');
+    });
+
+    test('returns 400 when incrementing existing item would exceed stock', async () => {
+        const token = signToken({ _id: userId, role: 'user' });
+        // first add with stock 5
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 5 } } });
+        await request(app)
+            .post(endpoint)
+            .set('Authorization', `Bearer ${token}`)
+            .send({ productId, quantity: 4 });
+
+        // second add would push total to 6 > stock 5
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 5 } } });
+        const res = await request(app)
+            .post(endpoint)
+            .set('Authorization', `Bearer ${token}`)
+            .send({ productId, quantity: 2 });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe('Requested quantity exceeds available stock');
     });
 
     test('403 when role not allowed', async () => {

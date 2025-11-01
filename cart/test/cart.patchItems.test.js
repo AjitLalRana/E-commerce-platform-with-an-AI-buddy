@@ -1,6 +1,9 @@
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const app = require('../src/app');
+const axios = require('axios');
+
+jest.mock('axios');
 
 jest.mock('../src/models/cart.model.js', () => {
     function mockGenerateObjectId() {
@@ -15,6 +18,13 @@ jest.mock('../src/models/cart.model.js', () => {
         }
         static async findOne(query) {
             return carts.get(query.user) || null;
+        }
+        static async findById(id) {
+            for (const v of carts.values()) {
+                if (!v) continue;
+                if (v._id && v._id.toString() === id.toString()) return v;
+            }
+            return null;
         }
         async save() {
             carts.set(this.user, this);
@@ -44,28 +54,33 @@ describe('PATCH /api/cart/items/:productId', () => {
 
     beforeEach(() => {
         CartModel.__reset();
+        if (axios.get && axios.get.mockReset) axios.get.mockReset();
     });
 
     test('updates quantity of existing item', async () => {
         const token = signToken({ _id: userId, role: 'user' });
         // create cart + item
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 10 } } });
         await request(app)
             .post(postEndpoint)
             .set('Authorization', `Bearer ${token}`)
             .send({ productId: existingProductId, quantity: 2 });
 
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 10 } } });
         const res = await request(app)
             .patch(`${patchBase}/${existingProductId}`)
             .set('Authorization', `Bearer ${token}`)
             .send({ quantity: 5 });
 
         expect(res.status).toBe(200);
-        expect(res.body.message).toBe('Item updated');
+        expect(res.body.message).toBe('Item quantity updated successfully');
         expect(res.body.cart.items[ 0 ]).toMatchObject({ productId: existingProductId, quantity: 5 });
     });
 
     test('404 when cart not found', async () => {
         const token = signToken({ _id: userId, role: 'user' });
+        // product service should respond so controller can continue to cart lookup
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 10 } } });
         const res = await request(app)
             .patch(`${patchBase}/${existingProductId}`)
             .set('Authorization', `Bearer ${token}`)
@@ -76,10 +91,15 @@ describe('PATCH /api/cart/items/:productId', () => {
 
     test('404 when item not in cart', async () => {
         const token = signToken({ _id: userId, role: 'user' });
+
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 10 } } });
         await request(app)
             .post(postEndpoint)
             .set('Authorization', `Bearer ${token}`)
             .send({ productId: existingProductId, quantity: 1 });
+
+        // the subsequent PATCH also calls product service
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 10 } } });
 
         const res = await request(app)
             .patch(`${patchBase}/${otherProductId}`)
@@ -87,7 +107,7 @@ describe('PATCH /api/cart/items/:productId', () => {
             .send({ quantity: 4 });
 
         expect(res.status).toBe(404);
-        expect(res.body.message).toBe('Item not found');
+        expect(res.body.message).toBe('Item not found in cart');
     });
 
     test('validation error invalid productId param', async () => {
@@ -102,6 +122,7 @@ describe('PATCH /api/cart/items/:productId', () => {
 
     test('validation error invalid qty', async () => {
         const token = signToken({ _id: userId, role: 'user' });
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 10 } } });
         await request(app)
             .post(postEndpoint)
             .set('Authorization', `Bearer ${token}`)
@@ -121,6 +142,26 @@ describe('PATCH /api/cart/items/:productId', () => {
             .patch(`${patchBase}/${existingProductId}`)
             .send({ quantity: 2 });
         expect(res.status).toBe(401);
+    });
+
+    test('returns 400 when requested quantity exceeds product stock on update', async () => {
+        const token = signToken({ _id: userId, role: 'user' });
+        // create cart + item with stock 5
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 5 } } });
+        await request(app)
+            .post(postEndpoint)
+            .set('Authorization', `Bearer ${token}`)
+            .send({ productId: existingProductId, quantity: 2 });
+
+        // request update to quantity 10 which exceeds stock
+        axios.get.mockResolvedValueOnce({ data: { data: { stock: 5 } } });
+        const res = await request(app)
+            .patch(`${patchBase}/${existingProductId}`)
+            .set('Authorization', `Bearer ${token}`)
+            .send({ quantity: 10 });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toBe('Requested quantity exceeds available stock');
     });
 
     test('403 when role not allowed', async () => {
