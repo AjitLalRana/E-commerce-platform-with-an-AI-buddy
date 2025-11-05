@@ -1,6 +1,9 @@
 const request = require('supertest');
 const app = require('../../src/app');
 const { getAuthCookie } = require('../setup/auth');
+const axios = require('axios');
+
+jest.mock('axios');
 
 
 describe('POST /api/orders — Create order from current cart', () => {
@@ -13,6 +16,12 @@ describe('POST /api/orders — Create order from current cart', () => {
     };
 
     it('creates order from current cart, computes totals, sets status=PENDING, reserves inventory', async () => {
+        const productId = '68fd08069af180cd20c86b3b';
+
+        // Mock cart service response (first axios.get)
+        axios.get.mockResolvedValueOnce({ data: { cart: { items: [ { productId, quantity: 2 } ] } } });
+        // Mock product service response (second axios.get)
+        axios.get.mockResolvedValueOnce({ data: { data: { _id: productId, title: 'Sample Product', price: { amount: 100, currency: 'INR' }, stock: 10 } } });
         // Example: Provide any inputs the API expects (headers/cookies/body). Adjust when auth is wired.
         const res = await request(app)
             .post('/api/orders')

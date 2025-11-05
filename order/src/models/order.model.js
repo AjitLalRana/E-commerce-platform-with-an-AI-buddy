@@ -58,6 +58,40 @@ const orderSchema = new mongoose.Schema({
         type: addressSchema,
         required: true
     },
+    timeline: [{
+        type: {
+            type: String,
+            required: true,
+            enum: ["CREATED", "CONFIRMED", "PAID", "SHIPPED", "DELIVERED", "CANCELLED"]
+        },
+        at: {
+            type: Date,
+            default: Date.now
+        }
+    }],
+    paymentSummary: {
+        subtotal: {
+            amount: Number,
+            currency: {
+                type: String,
+                enum: ["USD", "INR"]
+            }
+        },
+        taxes: {
+            amount: Number,
+            currency: {
+                type: String,
+                enum: ["USD", "INR"]
+            }
+        },
+        shipping: {
+            amount: Number,
+            currency: {
+                type: String,
+                enum: ["USD", "INR"]
+            }
+        }
+    },
 }, { timestamps: true });
 
 

@@ -1,4 +1,6 @@
-const { body, validationResult } = require('express-validator');
+const { response } = require('express');
+const { body,param, validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 
 
 
@@ -75,4 +77,11 @@ const updateAddressValidation = [
     respondWithValidationErrors
 ]
 
-module.exports = { createOrderValidation, updateAddressValidation };       
+const getOrderByIdValidation = [
+    param('id')
+        .custom(value => mongoose.Types.ObjectId.isValid(value))
+        .withMessage('Invalid order id'),
+    respondWithValidationErrors
+]
+
+module.exports = { createOrderValidation, updateAddressValidation, getOrderByIdValidation };       

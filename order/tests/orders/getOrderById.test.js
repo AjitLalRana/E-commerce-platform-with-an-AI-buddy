@@ -5,15 +5,55 @@ const orderModel = require('../../src/models/order.model');
 
 
 describe('GET /api/orders/:id — Get order by id with timeline and payment summary', () => {
-    const orderId = '68c13b2721c0d91f44ca3ead'; // sample ObjectId-like
+    let orderId;
+
+    beforeEach(async () => {
+        // Create a test order
+        const order = await orderModel.create({
+            user: '68fd08069af180cd20c86b3b', // matches default test user ID
+            items: [{
+                product: '68fd08069af180cd20c86b3c',
+                quantity: 2,
+                price: {
+                    amount: 200,
+                    currency: 'INR'
+                }
+            }],
+            status: 'PENDING',
+            totalPrice: {
+                amount: 200,
+                currency: 'INR'
+            },
+            shippingAddress: {
+                street: '123 Test St',
+                city: 'Test City',
+                state: 'Test State',
+                zip: '12345',
+                country: 'Test Country'
+            },
+            timeline: [{
+                type: 'CREATED',
+                at: new Date()
+            }],
+            paymentSummary: {
+                subtotal: {
+                    amount: 200,
+                    currency: 'INR'
+                },
+                taxes: {
+                    amount: 20,
+                    currency: 'INR'
+                },
+                shipping: {
+                    amount: 50,
+                    currency: 'INR'
+                }
+            }
+        });
+        orderId = order._id;
+    });
 
     it('returns 200 with order details, timeline, and payment summary', async () => {
-
-
-        const isOrder = await orderModel.findById(orderId).exec();
-        if (!isOrder) {
-            return; // skip test if order not found
-        }
         const res = await request(app)
             .get(`/api/orders/${orderId}`)
             .set('Cookie', getAuthCookie())
